@@ -1,18 +1,13 @@
 /* USER CODE BEGIN Header */
 /**
   ******************************************************************************
-  * @file           : main.c
-  * @brief          : Main program body
+  * @file           : main.cpp
+  * @brief          : CALC v1.0
   ******************************************************************************
   * @attention
-  *
-  * Copyright (c) 2025 STMicroelectronics.
+  * Sep-10-2025
+  * Copyright (c) Vlad Astrelin
   * All rights reserved.
-  *
-  * This software is licensed under terms that can be found in the LICENSE file
-  * in the root directory of this software component.
-  * If no LICENSE file comes with this software, it is provided AS-IS.
-  *
   ******************************************************************************
   */
 /* USER CODE END Header */
@@ -46,16 +41,13 @@ I2C_HandleTypeDef hi2c1;
 
 /* USER CODE BEGIN PV */
 
-char lcd_buf[17]; // буфер для строки LCD
-
-const char* keyboard[4][6] = 
+const char* keyboard[4][6] =
 {
     {"7", "8", "9", "+", "SHIFT", "MENU"},
     {"4", "5", "6", "-", "HEX" , "%"},
     {"1", "2", "3", "*", "BIN", "SQR"},
-    {"0", ".", "B", "/", "DEC", "CLS"}
+    {"0", ".", "#", "/", "DEC", "CLS"}
 };
-
 
 /* USER CODE END PV */
 
@@ -73,21 +65,23 @@ const char* Scan_Keypad(void) {
     uint16_t colPins[6] = {C0_Pin, C1_Pin, C2_Pin, C3_Pin, C4_Pin, C5_Pin};
 
     for (int c = 0; c < 6; c++) {
-        // Все колонки HIGH
+        // Выставляем все колонки в HIGH
         for (int i = 0; i < 6; i++) {
             HAL_GPIO_WritePin(colPort, colPins[i], GPIO_PIN_SET);
         }
 
-        // Активируем колонку c
+        // Активируем колонку c:
         HAL_GPIO_WritePin(colPort, colPins[c], GPIO_PIN_RESET);
         HAL_Delay(1);
 
-        // Проверяем строки
+        // Проверяем строки:
         for (int r = 0; r < 4; r++) {
+        	// Быстрое обнаружение нажатия:
             if (HAL_GPIO_ReadPin(rowPort, rowPins[r]) == GPIO_PIN_RESET) {
-                HAL_Delay(20); // антидребезг
+                HAL_Delay(20); // антидребезг 20ms
+                // Подтверждение нажатия:
                 if (HAL_GPIO_ReadPin(rowPort, rowPins[r]) == GPIO_PIN_RESET) {
-                    // Вернуть соответствующий символ
+                    // Вернуть соответствующий символ:
                     return keyboard[r][c];
                 }
             }
@@ -97,68 +91,32 @@ const char* Scan_Keypad(void) {
     return NULL; // ничего не нажато
 }
 
-// Функция сканирования матрицы (ROW/COL)
-void Scan_Keypad_Debug(void) {
-    GPIO_TypeDef* rowPort = GPIOC;
-    uint16_t rowPins[4] = {R0_Pin, R1_Pin, R2_Pin, R3_Pin};
-
-    GPIO_TypeDef* colPort = GPIOD;
-    uint16_t colPins[6] = {C0_Pin, C1_Pin, C2_Pin, C3_Pin, C4_Pin, C5_Pin};
-
-    for (int c = 0; c < 6; c++) {
-        // все столбцы HIGH
-        for (int i = 0; i < 6; i++) {
-            HAL_GPIO_WritePin(colPort, colPins[i], GPIO_PIN_SET);
-        }
-
-        // активируем текущий столбец (LOW)
-        HAL_GPIO_WritePin(colPort, colPins[c], GPIO_PIN_RESET);
-        HAL_Delay(1); // стабилизация
-
-        // читаем строки
-        for (int r = 0; r < 4; r++) {
-            if (HAL_GPIO_ReadPin(rowPort, rowPins[r]) == GPIO_PIN_RESET) {
-                HAL_Delay(20); // антидребезг
-                if (HAL_GPIO_ReadPin(rowPort, rowPins[r]) == GPIO_PIN_RESET) {
-                    snprintf(lcd_buf, sizeof(lcd_buf), "ROW:%d COL:%d", r, c);
-
-                    LCD_Clear();
-                    LCD_SetCursor(0,0);
-                    LCD_PrintString(lcd_buf);
-
-                    return; // сразу выходим после первой найденной кнопки
-                }
-            }
-        }
-    }
-}
-
 // Функция для определения нажатой кнопки + управление светодиодами
 const char* Get_Button_Name(void) {
     // Сначала гасим все светодиоды
     HAL_GPIO_WritePin(GPIOD, GREEN_Pin|ORANGE_Pin|RED_Pin|BLUE_Pin, GPIO_PIN_RESET);
-    
+
     // Проверяем кнопки и включаем соответствующий светодиод
     if (HAL_GPIO_ReadPin(GPIOA, GPIO_PIN_1) == GPIO_PIN_RESET) {
         HAL_GPIO_WritePin(GPIOD, GREEN_Pin, GPIO_PIN_SET);  // Зелёный для UP
-        return "UP UP";
+        return "UP";
     }
     if (HAL_GPIO_ReadPin(GPIOA, GPIO_PIN_2) == GPIO_PIN_RESET) {
         HAL_GPIO_WritePin(GPIOD, RED_Pin, GPIO_PIN_SET);    // Красный для DOWN
-        return "DOWN DOWN";
+        return "DOWN";
     }
     if (HAL_GPIO_ReadPin(GPIOA, GPIO_PIN_3) == GPIO_PIN_RESET) {
         HAL_GPIO_WritePin(GPIOD, BLUE_Pin, GPIO_PIN_SET);   // Синий для LEFT
-        return "LEFT LEFT";
+        return "LEFT";
     }
     if (HAL_GPIO_ReadPin(GPIOA, GPIO_PIN_4) == GPIO_PIN_RESET) {
         HAL_GPIO_WritePin(GPIOD, ORANGE_Pin, GPIO_PIN_SET); // Оранжевый для RIGHT
-        return "RIGHT RIGHT";
+        return "RIGHT";
     }
     if (HAL_GPIO_ReadPin(GPIOA, GPIO_PIN_5) == GPIO_PIN_RESET) {
         // Включаем ВСЕ светодиоды для ENTER
         HAL_GPIO_WritePin(GPIOD, GREEN_Pin|ORANGE_Pin|RED_Pin|BLUE_Pin, GPIO_PIN_SET);
-        return "ENTER ENTER";
+        return "ENTER";
     }
     return "NONE";
 }
@@ -167,6 +125,8 @@ const char* Get_Button_Name(void) {
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
+
+
 
 /* USER CODE END 0 */
 
@@ -178,6 +138,8 @@ int main(void)
 {
 
   /* USER CODE BEGIN 1 */
+
+
 
   /* USER CODE END 1 */
 
@@ -201,14 +163,14 @@ int main(void)
   MX_GPIO_Init();
   MX_I2C1_Init();
   /* USER CODE BEGIN 2 */
-    
-    LCD_Init();
-    
-    LCD_SetCursor(0, 0);    
-    LCD_PrintString("Press any button:");
-    
-    // Изначально все светодиоды выключены
-    HAL_GPIO_WritePin(GPIOD, GREEN_Pin|ORANGE_Pin|RED_Pin|BLUE_Pin, GPIO_PIN_RESET);
+
+  LCD_Init();
+
+  LCD_SetCursor(0, 0);
+  LCD_PrintString("Press any button:");
+
+  // Изначально все светодиоды выключены
+  HAL_GPIO_WritePin(GPIOD, GREEN_Pin|ORANGE_Pin|RED_Pin|BLUE_Pin, GPIO_PIN_RESET);
 
   /* USER CODE END 2 */
 
@@ -216,40 +178,28 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-		    // Проверяем системные кнопки (UP/DOWN/LEFT/RIGHT/ENTER)
-    const char* button = Get_Button_Name();
-    if (strcmp(button, "NONE") != 0) {
-        LCD_Clear();
-        LCD_SetCursor(0,0);
-        LCD_PrintString("Control Key:");
-        LCD_SetCursor(0,1);
-        LCD_PrintString(button);
-        HAL_Delay(200);
-    }
-		
-		    // Матрица
-    const char* key = Scan_Keypad();
-    if (key != NULL) {
-        LCD_Clear();
-        LCD_SetCursor(0,0);
-        LCD_PrintString("Key:");
-        LCD_SetCursor(0,1);
-        LCD_PrintString(key);
-        HAL_Delay(200);
-    }
+	    // Проверяем системные кнопки (UP/DOWN/LEFT/RIGHT/ENTER)
+const char* button = Get_Button_Name();
+if (strcmp(button, "NONE") != 0) {
+  LCD_Clear();
+  LCD_SetCursor(0,0);
+  LCD_PrintString("Control Key:");
+  LCD_SetCursor(0,1);
+  LCD_PrintString(button);
+  HAL_Delay(200);
+}
 
-    // Проверяем матричную клавиатуру
-    // Scan_Keypad_Debug();
-    // HAL_Delay(50);
-		
-//    const char* button = Get_Button_Name();
-//    if (strcmp(button, "NONE") != 0) {
-//        LCD_SetCursor(0, 1);
-//        LCD_PrintString("                "); // Очистка строки
-//        LCD_SetCursor(0, 1);
-//        LCD_PrintString(button); // LCD_PrintString((char*)button);
-//        HAL_Delay(200); // Задержка для антидребезга
-//    }
+	    // Матрица
+const char* key = Scan_Keypad();
+if (key != NULL) {
+  LCD_Clear();
+  LCD_SetCursor(0,0);
+  LCD_PrintString("Key:");
+  LCD_SetCursor(0,1);
+  LCD_PrintString(key);
+  HAL_Delay(200);
+}
+
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
