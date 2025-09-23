@@ -5,7 +5,7 @@
   * @brief          : CALC v2.0
   ******************************************************************************
   * @attention
-  * Copyright (c) 18-09-2025 Vlad Astrelin
+  * Copyright (c) 23-09-2025 Vlad Astrelin
   ******************************************************************************
   */
 /* USER CODE END Header */
@@ -70,9 +70,8 @@ const char* keyboard[8][8] =
 };
 
 // ===== Buffers =====
-char inputBuffer[32] = ""; // Буфер для вводимой строки (максимум 31 символ + терминатор)
-char lastAnswer[16] = "0"; // Буфер для хранения последнего результата (для кнопки ANS)
-char op = 0; // Переменная для хранения текущего оператора (не используется в текущей версии)
+char inputBuffer[100] = ""; // Буфер для вводимой строки (максимум 20 символ + терминатор)
+char lastAnswer[20] = "0"; // Буфер для хранения последнего результата (для кнопки ANS)
 
 /* USER CODE END PV */
 
@@ -168,17 +167,56 @@ void processKey(const char* key) {
 
     // Если показывается результат и пользователь начинает новый ввод - очищаем всё
     // Это предотвращает наложение нового ввода на старый результат
-    if (showResult && strlen(key) == 1 && (isdigit((unsigned char)key[0]) || key[0]=='.' ||
-                             key[0]=='+' || key[0]=='-' || key[0]=='*' || key[0]=='/')) {
-        strcpy(inputBuffer, ""); // очищаем буфер ввода
-        LCD_Clear(); // очищаем весь экран
-        showResult = 0; // сбрасываем флаг результата
-    }
+    if (showResult
+    		&& strlen(key) == 1
+			&& (isdigit((unsigned char)key[0])
+			|| key[0]=='.'
+			|| key[0]=='+'
+			|| key[0]=='-'
+			|| key[0]=='*'
+			|| key[0]=='/')) {
+        						strcpy(inputBuffer, ""); // очищаем буфер ввода
+        						LCD_Clear(); // очищаем весь экран
+        						showResult = 0; // сбрасываем флаг результата
+    						  }
 
     // Обработка кнопки очистки (CLS)
     if (strcmp(key, "CLS") == 0) {
         strcpy(inputBuffer, ""); // очищаем буфер ввода
         LCD_Clear(); // очищаем экран
+        firstInput = 1; // устанавливаем флаг первого ввода
+        showResult = 0; // сбрасываем флаг результата
+        return;
+    }
+
+    // Обработка кнопки последнего сохраненного результата (ANS)
+    if (strcmp(key, "ANS") == 0) {
+        strcpy(inputBuffer, ""); // очищаем буфер ввода
+        LCD_Clear(); // очищаем экран
+        LCD_SetCursor(0,0);
+        LCD_PrintString(lastAnswer);
+        firstInput = 1; // устанавливаем флаг первого ввода
+        showResult = 0; // сбрасываем флаг результата
+        return;
+    }
+
+    // Обработка кнопки меню (MENU)
+    if (strcmp(key, "MENU") == 0) {
+        strcpy(inputBuffer, ""); // очищаем буфер ввода
+        LCD_Clear(); // очищаем экран
+        LCD_SetCursor(0,0);
+        LCD_PrintString("Menu button pressed");
+        firstInput = 1; // устанавливаем флаг первого ввода
+        showResult = 0; // сбрасываем флаг результата
+        return;
+    }
+
+    // Обработка кнопки shift (SHIFT)
+    if (strcmp(key, "SHIFT") == 0) {
+        strcpy(inputBuffer, ""); // очищаем буфер ввода
+        LCD_Clear(); // очищаем экран
+        LCD_SetCursor(0,0);
+        LCD_PrintString("Shift button pressed");
         firstInput = 1; // устанавливаем флаг первого ввода
         showResult = 0; // сбрасываем флаг результата
         return;
@@ -198,7 +236,9 @@ void processKey(const char* key) {
             // Преобразуем строки в числа
             double a = atof(expr); // первый операнд
             double b = atof(ptrOp + 1); // второй операнд
+
             double res = 0; // результат
+
             uint8_t error = 0; // флаг ошибки
 
             // Выполняем операцию в зависимости от оператора
@@ -218,21 +258,21 @@ void processKey(const char* key) {
             // 1 строка: первый операнд
             LCD_SetCursor(0,0);
             LCD_PrintString(expr);
-            // Дополняем пробелами если нужно (для очистки остатков предыдущего текста)
-            for (int i = strlen(expr); i < 16; i++) LCD_PrintString(" ");
+            // Дополняем пробелами (для очистки остатков предыдущего текста)
+            for (int i = strlen(expr); i < 20; i++) LCD_PrintString(" ");
 
             // 2 строка: оператор
             LCD_SetCursor(0,1);
             char opStr[2] = {op, '\0'}; // преобразуем символ в строку
             LCD_PrintString(opStr);
             // Дополняем пробелами
-            for (int i = 1; i < 16; i++) LCD_PrintString(" ");
+            for (int i = 1; i < 20; i++) LCD_PrintString(" ");
 
             // 3 строка: второй операнд
             LCD_SetCursor(0,2);
             LCD_PrintString(ptrOp + 1); // выводим всё после оператора
             // Дополняем пробелами если нужно
-            for (int i = strlen(ptrOp + 1); i < 16; i++) LCD_PrintString(" ");
+            for (int i = strlen(ptrOp + 1); i < 20; i++) LCD_PrintString(" ");
 
             // 4 строка: результат со знаком равно
             LCD_SetCursor(0,3);
@@ -240,13 +280,13 @@ void processKey(const char* key) {
                 LCD_PrintString("= ERROR: DIV 0  "); // ошибка деления на ноль
             } else {
                 char buf[20];
-                // Форматируем результат с знаком равно и 6 значащими цифрами
+                // Форматируем результат со знаком равно
                 snprintf(buf, sizeof(buf), "=%.6g", res);
                 LCD_PrintString(buf);
                 // Дополняем пробелами если нужно
-                for (int i = strlen(buf); i < 16; i++) LCD_PrintString(" ");
+                for (int i = strlen(buf); i < 20; i++) LCD_PrintString(" ");
 
-                // сохраняем результат для возможного использования (кнопка ANS)
+                // сохраняем результат для кнопки ANS
                 snprintf(lastAnswer, sizeof(lastAnswer), "%.6g", res);
             }
 
@@ -271,8 +311,14 @@ void processKey(const char* key) {
     }
 
     // Ввод цифр и операторов
-    if (strlen(key) == 1 && (isdigit((unsigned char)key[0]) || key[0]=='.' ||
-                             key[0]=='+' || key[0]=='-' || key[0]=='*' || key[0]=='/')) {
+    if (strlen(key) == 1
+    		&& (isdigit((unsigned char)key[0])
+    		|| key[0]=='.'
+    		|| key[0]=='+'
+    		|| key[0]=='-'
+    		|| key[0]=='*'
+    		|| key[0]=='/'))
+    	{
         // Добавляем символ в буфер
         int len = strlen(inputBuffer);
         if (len < sizeof(inputBuffer) - 1) { // проверяем, не переполнен ли буфер
